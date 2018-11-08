@@ -16,6 +16,7 @@ def get_texts_from_file(file_path, column_name):
 
 
 def remove_duplicated_texts(texts):
+    """Remove duplicated text entries."""
     seen = set()
     texts_ = []
     for text in texts:
