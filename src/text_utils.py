@@ -7,8 +7,8 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 
 
 def get_texts_from_file(file_path, column_name):
-    """Read text from 'file_path' and returns the content in 'column_name' as a 
-       list of strings.
+    """Read texts from 'file_path' and returns the content in 'column_name' as
+       a list of strings.
     """
     data = pd.read_csv(file_path)
     texts = data[column_name].values.tolist()
@@ -44,7 +44,7 @@ def remove_stopwords(texts):
 
 
 def stemmize_text(texts):
-    """Text stemmize each token in the list of tokens"""
+    """Stemmize each token in the list of tokens"""
     # Stemming and correct spelling
     stemmer = RSLPStemmer()
     texts_ = []
