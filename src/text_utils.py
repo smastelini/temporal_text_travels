@@ -4,18 +4,6 @@ from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
 from nltk.stem.rslp import RSLPStemmer
 from sklearn.feature_extraction.text import TfidfVectorizer
-# # To correct spelling
-# from autocorrect import spell
-# # To create the bag of words
-# from sklearn.feature_extraction.text import TfidfVectorizer
-# from sklearn.cluster import MiniBatchKMeans
-# from sklearn.manifold import TSNE
-# # Plots
-# import matplotlib.pyplot as plt
-# import seaborn as sns
-# import numpy as np
-# import pickle
-# import os
 
 
 def get_texts_from_file(file_path, column_name):
