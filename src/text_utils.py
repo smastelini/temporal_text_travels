@@ -27,6 +27,16 @@ def get_texts_from_file(file_path, column_name):
     return texts
 
 
+def remove_duplicated_texts(texts):
+    seen = set()
+    texts_ = []
+    for text in texts:
+        if text not in seen:
+            seen.add(text)
+            texts_.append(text)
+    return texts_
+
+
 def tokenize_texts(texts):
     """Remove invalid characters and tokenize texts."""
     texts = [re.sub('[^A-Za-zçáéíóúàããẽõ]', ' ', text).lower()
@@ -72,7 +82,7 @@ def get_bag_of_words(corpus, max_features=1000):
     return X
 
 
-# Descomentar para testar as funcionalidades
+# # Descomentar para testar as funcionalidades
 # if __name__ == '__main__':
 #     texts = get_texts_from_file('../data/febre_amarela_jun17-out18.csv',
 #                                 'title')
