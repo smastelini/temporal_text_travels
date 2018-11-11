@@ -1,5 +1,7 @@
 import pandas as pd
 import re
+from gensim.models import LdaModel
+from gensim.corpora import Dictionary
 from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
 from nltk.stem.rslp import RSLPStemmer
@@ -10,7 +12,7 @@ def get_texts_from_file(file_path, column_name):
     """Read texts from 'file_path' and returns the content in 'column_name' as
        a list of strings.
     """
-    data = pd.read_csv(file_path)
+    data = pd.read_json(file_path)
     texts = data[column_name].values.tolist()
     return texts
 
@@ -70,14 +72,19 @@ def get_bag_of_words(corpus, max_features=1000):
 
     return X
 
+def get_topics(corpus,n_topics):
+    dictionary = Dictionary(corpus)
+    common_corpus = [dictionary.doc2bow(text) for text in corpus]
+    topics = LdaModel(common_corpus, num_topics=n_topics, id2word=dictionary)
+    return topics
 
-# # Descomentar para testar as funcionalidades
-# if __name__ == '__main__':
-#     texts = get_texts_from_file('../data/febre_amarela_jun17-out18.csv',
-#                                 'title')
-#     texts_tokenized = tokenize_texts(texts)
-#     texts_stopwords_rem = remove_stopwords(texts_tokenized)
-#     texts_stemmized = stemmize_text(texts_stopwords_rem)
-#     corpus = create_corpus(texts_stemmized)
-#     bow = get_bag_of_words(corpus)
-#     print(bow[0])
+# Descomentar para testar as funcionalidades
+if __name__ == '__main__':
+    docs = get_texts_from_file('../data/febre_amarela_jun17-out18.json',
+                                 'title')
+    corpus = tokenize_texts(docs)
+    processed_corpus = stemmize_text(remove_stopwords(corpus))
+    topics = get_topics(processed_corpus,3)  
+    for idx, topic in topics.print_topics(-1):
+        print('Topic: {} \nWords: {}'.format(idx, topic))
+
