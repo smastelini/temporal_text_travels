@@ -6,7 +6,7 @@ from gensim.corpora import Dictionary
 from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
 from nltk.stem.rslp import RSLPStemmer
-from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
 
 
 def get_text_and_time_data_from_file(file_path):
@@ -17,7 +17,6 @@ def get_text_and_time_data_from_file(file_path):
     data_ = data.loc[:, ['date', 'title']]
 
     data_['date'] = pd.to_datetime(data_['date'])
-
     return data_
 
 
@@ -43,6 +42,7 @@ def tokenize_texts(texts):
 def remove_stopwords(texts):
     """Remove stopwords from the lists of tokens"""
     stopwords_ = stopwords.words('portuguese')
+    stopwords_.extend(['é','da','do','de'])
     processed_texts = []
     for text in texts:
         ctext = text.copy()
@@ -64,7 +64,7 @@ def stemmize_text(texts):
     return texts_
 
 
-def create_corpus(texts):
+def untokenize_text(texts):
     """Join processed list of tokens"""
     corpus = [' '.join(text) for text in texts]
     return corpus
@@ -79,14 +79,6 @@ def get_bag_of_words(corpus, max_features=1000):
 
     return X
 
-
-def get_topics(corpus, n_topics):
-    dictionary = Dictionary(corpus)
-    common_corpus = [dictionary.doc2bow(text) for text in corpus]
-    topics = LdaModel(common_corpus, num_topics=n_topics, id2word=dictionary)
-    return topics
-
-
 def split_events(data, init, end, freq='W'):
     """ Splits events given an initial ('init') and ending ('end') time.
 
@@ -96,21 +88,67 @@ def split_events(data, init, end, freq='W'):
     slices_raw = [g.reset_index() for n, g in
                   data.set_index('date').groupby(pd.Grouper(freq=freq))]
     slices = [slc for slc in slices_raw if slc.shape[0] > 0]
-    print(slices)
     return slices
 
+def get_topics_lda(corpus,dictionary,n_topics,passes):
+    common_corpus = [dictionary.doc2bow(text) for text in corpus]
+    topics = LdaModel(common_corpus, num_topics=n_topics, id2word=dictionary, passes=passes)
+    return topics
+
+def get_topics_lsi(corpus,dictionary,n_topics):
+    common_corpus = [dictionary.doc2bow(text) for text in corpus]
+    topics = LsiModel(common_corpus, num_topics=n_topics, id2word=dictionary)
+    return topics
+
+def get_relevant_terms(topics_model,dictionary,n_terms):
+    relevant = []
+    for idx in range(n_topics):
+        tt = topics_model.get_topic_terms(idx,n_terms)
+        relevant.extend([dictionary[pair[0]] for pair in tt])
+    return set(relevant)
+
+def get_term_document_matrix(corpus,terms):
+    vectorizer = CountVectorizer()
+    X = vectorizer.fit_transform(corpus)
+    tdm = pd.DataFrame(X.toarray(), columns=vectorizer.get_feature_names())
+    return tdm.loc[:,terms]
+
+def get_adj_matrix(corpus,terms):
+    tdm = get_term_document_matrix(corpus['title'].values,terms)
+    adj_matrix = tdm.transpose().dot(tdm)
+    np.fill_diagonal(adj_matrix.values, 0)
+    adj_matrix=adj_matrix.fillna(value=0)
+    return adj_matrix
+
+def get_splitted_adj_matrix(splitted_events,terms):
+    splitted_adj_matrix = []
+    for events in splitted_events:
+        adj_matrix = get_adj_matrix(events,terms)
+        
+        splitted_adj_matrix.append(adj_matrix)
+    return splitted_adj_matrix
 
 # Descomentar para testar as funcionalidades
 if __name__ == '__main__':
-    docs = get_text_and_time_data_from_file(
-        '../data/febre_amarela_jun17-out18.json'
-    )
-
-    docs = remove_duplicated_texts(docs)
-
-    corpus = tokenize_texts(docs['title'].values)
-    processed_corpus = stemmize_text(remove_stopwords(corpus))
-    split_events(docs, docs['date'].min(), docs['date'].max())
-    # topics = get_topics(processed_corpus, 3)
-    # for idx, topic in topics.print_topics(-1):
-    #     print('Topic: {} \nWords: {}'.format(idx, topic))
+     corpus = get_text_and_time_data_from_file('../data/febre_amarela_jun17-out18.json')
+     n_passes_lda = 100
+     n_topics = 4
+     n_terms = 10
+     freq_split = 'M'   
+     
+     #====================================Pre processing========================================   
+     corpus = remove_duplicated_texts(corpus)
+     tokenized_corpus = tokenize_texts(corpus['title'].values)
+     processed_corpus = stemmize_text(remove_stopwords(tokenized_corpus))
+     
+     #====================================Extract relevant terms================================   
+     dictionary = Dictionary(processed_corpus)
+     topics = get_topics_lda(processed_corpus,dictionary,n_topics,n_passes_lda)   
+     relevant_terms = get_relevant_terms(topics,dictionary,n_terms)
+     
+     #=======================Generate adjacency matrix per splits===============================
+     corpus['title'] = untokenize_text(processed_corpus)
+     splitted_corpus = split_events(corpus, corpus['date'].min(), corpus['date'].max(),freq=freq_split)   
+     splitted_adj_matrix = get_splitted_adj_matrix(splitted_corpus,relevant_terms)
+     
+     print(splitted_adj_matrix[10])
