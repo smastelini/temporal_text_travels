@@ -1,6 +1,8 @@
 import pandas as pd
 import numpy as np
 import re
+import os
+from collections import Counter
 from gensim.models import LdaModel, LsiModel
 from gensim.corpora import Dictionary
 from nltk.tokenize import word_tokenize
@@ -70,13 +72,23 @@ def remove_stopwords(texts, language='portuguese'):
 
 def stemmize_text(texts):
     """Stemmize each token in the list of tokens"""
+    # To count the most common for of a root term
+    root2frequent = {}
     # Stemming and correct spelling
     stemmer = RSLPStemmer()
     texts_ = []
     for text in texts:
-        text_ = [stemmer.stem(w) for w in text]
+        text_ = []
+        for w in text:
+            stem = stemmer.stem(w)
+            try:
+                root2frequent[stem].update({w: 1})
+            except KeyError:
+                root2frequent[stem] = Counter()
+                root2frequent[stem].update({w: 1})
+            text_.append(stem)
         texts_.append(text_)
-    return texts_
+    return texts_, root2frequent
 
 
 def untokenize_text(texts):
@@ -103,8 +115,8 @@ def split_events(data, init, end, freq='W'):
     """
     slices_raw = [g.reset_index() for n, g in
                   data.set_index('date').groupby(pd.Grouper(freq=freq))]
-    slices = [slc for slc in slices_raw if slc.shape[0] > 0]
-    return slices
+    # slices = [slc for slc in slices_raw if slc.shape[0] > 0]
+    return slices_raw
 
 
 def get_topics_lda(corpus, dictionary, n_topics, passes):
@@ -125,14 +137,14 @@ def get_relevant_terms(topics_model, dictionary, n_topics, n_terms):
     for idx in range(n_topics):
         tt = topics_model.get_topic_terms(idx, n_terms)
         relevant.extend([dictionary[pair[0]] for pair in tt])
-    return set(relevant)
+    return list(set(relevant))
 
 
 def get_term_document_matrix(corpus, terms):
     vectorizer = CountVectorizer()
     X = vectorizer.fit_transform(corpus)
     tdm = pd.DataFrame(X.toarray(), columns=vectorizer.get_feature_names())
-    return tdm.loc[:, terms]
+    return tdm.reindex(labels=terms, axis=1)
 
 
 def get_adj_matrix(corpus, terms):
@@ -146,8 +158,10 @@ def get_adj_matrix(corpus, terms):
 def get_splitted_adj_matrix(splitted_events, terms):
     splitted_adj_matrix = []
     for events in splitted_events:
-        adj_matrix = get_adj_matrix(events, terms)
-
+        if events.shape[0] > 0:
+            adj_matrix = get_adj_matrix(events, terms)
+        else:
+            adj_matrix = np.zeros(0)
         splitted_adj_matrix.append(adj_matrix)
     return splitted_adj_matrix
 
@@ -158,18 +172,37 @@ def join_time_variant_adj_matrices(splitted_adj_matrix):
     vec_repr = np.zeros((n_rows, n_cols))
 
     for i in range(n_rows):
-        vec_repr[i, :] = splitted_adj_matrix[i].reshape((1, n_cols))
+        if splitted_adj_matrix[i].shape[0] > 0:
+            vec_repr[i, :] = splitted_adj_matrix[i].values.reshape((1, n_cols))
 
     return vec_repr
 
 
-def get_top_k_terms_and_time_period(splitted_adj_matrix, slices, terms, k=5):
+def get_top_k_terms_and_time_period(splitted_adj_matrix, slices, terms,
+                                    unstemmizer, k=5):
     top_terms = []
     for m, s in zip(splitted_adj_matrix, slices):
-        top_k = m.sum(axis=1).argsort()[-k:].tolist()
-        top_ = [terms[t] for t in top_k]
-        period = '{}--{}'.format(s.loc[0, 'date'], s.loc[-1, 'date'])
-        top_terms.append((period, top_))
+        if s.shape[0] > 0:
+            top_k = m.sum(axis=1).argsort()[-k:].tolist()
+            top_ = [unstemmizer[terms[t]].most_common(1)[0][0] for t in top_k]
+            if s.shape[0] > 1:
+                period = '{0}/{1}/{2}-{3}/{4}/{5}'.format(
+                    s.loc[0, 'date'].day,
+                    s.loc[0, 'date'].month,
+                    s.loc[0, 'date'].year,
+                    s.loc[s.shape[0] - 1, 'date'].day,
+                    s.loc[s.shape[0] - 1, 'date'].month,
+                    s.loc[s.shape[0] - 1, 'date'].year,
+                )
+            else:
+                period = '{0}/{1}/{2}'.format(
+                    s.loc[0, 'date'].day,
+                    s.loc[0, 'date'].month,
+                    s.loc[0, 'date'].year,
+                )
+            top_terms.append((period, top_))
+        else:
+            top_terms.append((None, []))
     return top_terms
 
 
@@ -201,7 +234,8 @@ def plot_projections(projections, top_terms, dataset_name, method,
     """ Creates an interative scatter plot of the projections.
     """
     # Joins the top terms per time slice with line breaks
-    formatted_terms = ['<br>'.join(t[1]) for t in top_terms]
+    formatted_terms = ['<br>'.join(t[1]) if t[0] is not None else ''
+                       for t in top_terms]
 
     trace = go.Scatter(
         x=projections[:, 0],
@@ -222,8 +256,9 @@ def plot_projections(projections, top_terms, dataset_name, method,
             colorscale='Viridis'
         ),
         hoverinfo='text',
-        text=['Step {} ({}):<br>{}'.format(t, top_terms[t][0],
-              formatted_terms[t]) for t in range(projections.shape[0])],
+        text=['Step {}<br>({}):<br>{}'.format(t, top_terms[t][0],
+              formatted_terms[t]) if top_terms[t][0] is not None else
+              'Step {}'.format(t) for t in range(projections.shape[0])],
         textposition='top left'
     )
 
@@ -287,7 +322,7 @@ if __name__ == '__main__':
                 '(-s, --slice=) Time slicing strategy:\n' +
                 '\tD - Day\n\tW - Week (Default)\n\tM - Month\n' +
                 '(-m, --method=) Multidimensional projection method: ' +
-                '{PCA, t-SNE, MDS, Isomap}\n' +
+                '{PCA, t-SNE, MDS, Isomap} (Default: PCA)\n' +
                 '(-to, --n_topics=) Number of topics for the LDA algorithm ' +
                 '(Default: 4)\n' +
                 '(-te, --n_terms=) Number of terms for the LDA algorithm ' +
@@ -313,39 +348,51 @@ if __name__ == '__main__':
             output = a
         else:
             assert False, 'Unhandled option: {}.'.format(o)
-
+    print('Reading data.')
     corpus = get_text_and_time_data_from_file(input)
 
     # ==============================Pre processing=============================
+    print('Removing duplicated events.')
     corpus = remove_duplicated_texts(corpus)
+    print('Tokenizing terms, removing stopwords and applying stemming.')
     tokenized_corpus = tokenize_texts(corpus['title'].values)
-    processed_corpus = stemmize_text(remove_stopwords(tokenized_corpus))
-
+    processed_corpus, unstemmizer = stemmize_text(
+        remove_stopwords(tokenized_corpus)
+    )
     # =========================Extract relevant terms==========================
+    print('Getting the most relevant terms.')
     dictionary = Dictionary(processed_corpus)
     topics = get_topics_lda(processed_corpus, dictionary, n_topics,
                             n_passes_lda)
     relevant_terms = get_relevant_terms(topics, dictionary, n_topics, n_terms)
 
     # ================Generate adjacency matrix per splits=====================
+    print('Generating dynamic network representation.')
     corpus['title'] = untokenize_text(processed_corpus)
     splitted_corpus = split_events(corpus, corpus['date'].min(),
                                    corpus['date'].max(),
                                    freq=time_slice)
     splitted_adj_matrix = get_splitted_adj_matrix(splitted_corpus,
                                                   relevant_terms)
+    print('Getting dynamic network\'s vectorial representation.')
     # Vectorial to be projected in 2D
     vec_repr = join_time_variant_adj_matrices(splitted_adj_matrix)
     # Data projection
+    print('Projecting data points.')
     plot_data = project_data_points(vec_repr, method)
     # Get top k terms by window time (by their node degree) and the respective
     # time period
+    print('Ploting data.')
     top_terms = get_top_k_terms_and_time_period(
         splitted_adj_matrix,
         splitted_corpus,
         relevant_terms,
+        unstemmizer,
         k=5
     )
 
     dataset_name = input.split('/')[-1]
+    if not os.path.exists(output):
+        os.makedirs(output)
     plot_projections(plot_data, top_terms, dataset_name, method, output)
+    print('Operations finished.')
