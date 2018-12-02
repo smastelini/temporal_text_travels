@@ -118,8 +118,8 @@ def split_events(data, init, end, freq='W'):
     """
     slices_raw = [g.reset_index() for n, g in
                   data.set_index('date').groupby(pd.Grouper(freq=freq))]
-    # slices = [slc for slc in slices_raw if slc.shape[0] > 0]
-    return slices_raw
+    slices = [slc for slc in slices_raw if slc.shape[0] > 0]
+    return slices
 
 
 def get_topics_lda(corpus, dictionary, n_topics, passes):
@@ -161,10 +161,7 @@ def get_adj_matrix(corpus, terms):
 def get_splitted_adj_matrix(splitted_events, terms):
     splitted_adj_matrix = []
     for events in splitted_events:
-        if events.shape[0] > 0:
-            adj_matrix = get_adj_matrix(events, terms)
-        else:
-            adj_matrix = np.zeros(0)
+        adj_matrix = get_adj_matrix(events, terms)
         splitted_adj_matrix.append(adj_matrix)
     return splitted_adj_matrix
 
@@ -175,8 +172,7 @@ def join_time_variant_adj_matrices(splitted_adj_matrix):
     vec_repr = np.zeros((n_rows, n_cols))
 
     for i in range(n_rows):
-        if splitted_adj_matrix[i].shape[0] > 0:
-            vec_repr[i, :] = splitted_adj_matrix[i].values.reshape((1, n_cols))
+        vec_repr[i, :] = splitted_adj_matrix[i].values.reshape((1, n_cols))
 
     return vec_repr
 
@@ -185,27 +181,24 @@ def get_top_k_terms_and_time_period(splitted_adj_matrix, slices, terms,
                                     unstemmizer, k=5):
     top_terms = []
     for m, s in zip(splitted_adj_matrix, slices):
-        if s.shape[0] > 0:
-            top_k = m.sum(axis=1).argsort()[-k:].tolist()
-            top_ = [unstemmizer[terms[t]].most_common(1)[0][0] for t in top_k]
-            if s.shape[0] > 1:
-                period = '{0}/{1}/{2}-{3}/{4}/{5}'.format(
-                    s.loc[0, 'date'].day,
-                    s.loc[0, 'date'].month,
-                    s.loc[0, 'date'].year,
-                    s.loc[s.shape[0] - 1, 'date'].day,
-                    s.loc[s.shape[0] - 1, 'date'].month,
-                    s.loc[s.shape[0] - 1, 'date'].year,
-                )
-            else:
-                period = '{0}/{1}/{2}'.format(
-                    s.loc[0, 'date'].day,
-                    s.loc[0, 'date'].month,
-                    s.loc[0, 'date'].year,
-                )
-            top_terms.append((period, top_))
+        top_k = m.sum(axis=1).argsort()[-k:].tolist()
+        top_ = [unstemmizer[terms[t]].most_common(1)[0][0] for t in top_k]
+        if s.shape[0] > 1:
+            period = '{0}/{1}/{2}-{3}/{4}/{5}'.format(
+                s.loc[0, 'date'].day,
+                s.loc[0, 'date'].month,
+                s.loc[0, 'date'].year,
+                s.loc[s.shape[0] - 1, 'date'].day,
+                s.loc[s.shape[0] - 1, 'date'].month,
+                s.loc[s.shape[0] - 1, 'date'].year,
+            )
         else:
-            top_terms.append((None, []))
+            period = '{0}/{1}/{2}'.format(
+                s.loc[0, 'date'].day,
+                s.loc[0, 'date'].month,
+                s.loc[0, 'date'].year,
+            )
+        top_terms.append((period, top_))
     return top_terms
 
 
@@ -217,7 +210,7 @@ def project_data_points(data, method='PCA'):
     and 'Isomap'.
     """
     projected = None
-
+    data = StandardScaler().fit_transform(data)
     if method == 't-SNE':
         projection = TSNE(n_components=2)
     elif method == 'MDS':
@@ -225,7 +218,6 @@ def project_data_points(data, method='PCA'):
     elif method == 'Isomap':
         projection = Isomap(n_components=2)
     else:
-        data = StandardScaler().fit_transform(data)
         projection = PCA(n_components=2)
 
     projected = projection.fit_transform(data)
@@ -237,8 +229,7 @@ def plot_projections(projections, top_terms, dataset_name, method,
     """ Creates an interative scatter plot of the projections.
     """
     # Joins the top terms per time slice with line breaks
-    formatted_terms = ['<br>'.join(t[1]) if t[0] is not None else ''
-                       for t in top_terms]
+    formatted_terms = ['<br>'.join(t[1]) for t in top_terms]
 
     trace = go.Scatter(
         x=projections[:, 0],
@@ -260,8 +251,7 @@ def plot_projections(projections, top_terms, dataset_name, method,
         ),
         hoverinfo='text',
         text=['Step {}<br>({}):<br>{}'.format(t, top_terms[t][0],
-              formatted_terms[t]) if top_terms[t][0] is not None else
-              'Step {}'.format(t) for t in range(projections.shape[0])],
+              formatted_terms[t]) for t in range(projections.shape[0])],
         textposition='top left'
     )
 
