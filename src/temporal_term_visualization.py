@@ -29,10 +29,11 @@ def get_text_and_time_data_from_file(file_path):
     """Read text from 'file_path' and returns the content in 'column_name as
        a list of strings.
     """
-    data = pd.read_json(file_path)
+    data = pd.read_csv(file_path)
     data_ = data.loc[:, ['date', 'title']]
 
     data_['date'] = pd.to_datetime(data_['date'])
+    data_.sort_values(by=['date'])
     return data_
 
 
