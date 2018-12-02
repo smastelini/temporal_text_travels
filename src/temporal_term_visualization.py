@@ -55,11 +55,13 @@ def tokenize_texts(texts, language='portuguese'):
     return texts
 
 
-def remove_stopwords(texts, language='portuguese'):
+def remove_stopwords(texts, domain_stopwords=None, language='portuguese'):
     """Remove stopwords from the lists of tokens"""
     stopwords_ = stopwords.words(language)
     if language == 'portuguese':
         stopwords_.extend(['é', 'da', 'do', 'de'])
+    if domain_stopwords is not None:
+        stopwords_.extend(domain_stopwords)
     processed_texts = []
     for text in texts:
         ctext = text.copy()
@@ -289,10 +291,10 @@ def plot_projections(projections, top_terms, dataset_name, method,
 # Descomentar para testar as funcionalidades
 if __name__ == '__main__':
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'hi:m:s:o:to:te:p:',
+        opts, args = getopt.getopt(sys.argv[1:], 'hi:m:s:o:t:e:p:d:',
                                    ['help', 'input=', 'method=', 'slice=',
                                     'output=', 'n_topics=', 'n_terms=',
-                                    'n_passes='])
+                                    'n_passes=', 'domain_stopwords='])
     except getopt.GetoptError as err:
         print(str(err))
         sys.exit(2)
@@ -311,6 +313,7 @@ if __name__ == '__main__':
     n_topics = 4
     n_terms = 10
     n_passes_lda = 100
+    domain_stopwords = None
 
     for o, a in opts:
         if o in ('-h', '--help'):
@@ -323,12 +326,15 @@ if __name__ == '__main__':
                 '\tD - Day\n\tW - Week (Default)\n\tM - Month\n' +
                 '(-m, --method=) Multidimensional projection method: ' +
                 '{PCA, t-SNE, MDS, Isomap} (Default: PCA)\n' +
-                '(-to, --n_topics=) Number of topics for the LDA algorithm ' +
+                '(-t, --n_topics=) Number of topics for the LDA algorithm ' +
                 '(Default: 4)\n' +
-                '(-te, --n_terms=) Number of terms for the LDA algorithm ' +
+                '(-e, --n_terms=) Number of terms for the LDA algorithm ' +
                 '(Default: 10)\n' +
                 '(-p, --n_passes=) Number of passes for the LDA algorithm ' +
                 '(Default: 100)\n' +
+                '(-d, --domain_stopwords=) List of additional domain only ' +
+                'stopwords separated by colons (Example: some:simple:' +
+                'example).\n'
                 '(-o, --output=) Path for the output folder.\n'
             )
             exit()
@@ -338,12 +344,14 @@ if __name__ == '__main__':
             method = a
         elif o in ('-s', '--slice'):
             time_slice = a
-        elif o in ('-to', '--n_topics'):
+        elif o in ('-t', '--n_topics'):
             n_topics = int(a)
-        elif o in ('-te', '--n_terms'):
+        elif o in ('-e', '--n_terms'):
             n_terms = int(a)
         elif o in ('-p', '--n_passes'):
             n_passes_lda = int(a)
+        elif o in ('-d', '--domain_stopwords'):
+            domain_stopwords = a.split(':')
         elif o in ('-o', '--output'):
             output = a
         else:
@@ -357,7 +365,7 @@ if __name__ == '__main__':
     print('Tokenizing terms, removing stopwords and applying stemming.')
     tokenized_corpus = tokenize_texts(corpus['title'].values)
     processed_corpus, unstemmizer = stemmize_text(
-        remove_stopwords(tokenized_corpus)
+        remove_stopwords(tokenized_corpus, domain_stopwords)
     )
     # =========================Extract relevant terms==========================
     print('Getting the most relevant terms.')
