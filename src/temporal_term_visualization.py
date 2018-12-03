@@ -188,8 +188,10 @@ def get_top_k_terms_and_time_period(splitted_adj_matrix, slices, terms,
     for m, s in zip(splitted_adj_matrix, slices):
         sum_ = m.sum(axis=1).values
         top_k = sum_.argsort()[-k:].tolist()
-        top_ = [unstemmizer[terms[t]].most_common(1)[0][0] for t in top_k
-                if sum_[t] > 0]
+        top_k.reverse()
+        top_ = [unstemmizer[terms[t]].most_common(1)[0][0] for t in
+                top_k if sum_[t] > 0]
+        degrees = [sum_[t] for t in top_k if sum_[t] > 0]
         if s.shape[0] > 1:
             period = '{0}/{1}/{2}-{3}/{4}/{5}'.format(
                 s.loc[0, 'date'].day,
@@ -205,7 +207,7 @@ def get_top_k_terms_and_time_period(splitted_adj_matrix, slices, terms,
                 s.loc[0, 'date'].month,
                 s.loc[0, 'date'].year,
             )
-        top_terms.append((period, top_))
+        top_terms.append((period, top_, degrees))
     return top_terms
 
 
@@ -231,57 +233,76 @@ def project_data_points(data, method='PCA'):
     return projected
 
 
-def plot_projections(projections, top_terms, points_size, dataset_name, method,
+def plot_projections(projections, top_terms, points_size, method,
                      out_path=None):
     """ Creates an interative scatter plot of the projections.
     """
     # Joins the top terms per time slice with line breaks
-    formatted_terms = ['<br>'.join(t[1]) for t in top_terms]
+    terms_degree = []
+    for t in top_terms:
+        pretty_print = []
+        words_ = t[1]
+        degrees_ = t[2]
+        for w, d in zip(words_, degrees_):
+            pretty_print.append('[{0}] {1}'.format(int(d), w))
+        terms_degree.append(pretty_print)
+    formatted_terms = ['<br>'.join(t) for t in terms_degree]
 
     trace = go.Scatter(
         x=projections[:, 0],
         y=projections[:, 1],
-        mode='lines+markers',
+        mode='markers',
         marker=dict(
+            opacity=1,
             size=points_size,
-            line=dict(
-                width=0.3,
-                color='rgb(0, 0, 0)'
-            ),
             cmin=0,
             cmax=projections.shape[0],
             color=[c for c in range(projections.shape[0])],
             colorbar=dict(
-                title='Time'
+                title='Time step'
             ),
             colorscale='Viridis'
+            # line=dict(
+            #     width=0.1,
+            #     color=('rgb(180, 180, 180)')
+            # ),
         ),
         hoverinfo='text',
         text=['Step {}<br>({}):<br>{}'.format(t, top_terms[t][0],
               formatted_terms[t]) for t in range(projections.shape[0])],
-        textposition='top left'
+        textposition='top left',
+        showlegend=False
+    )
+
+    lines = go.Scatter(
+        x=projections[:, 0],
+        y=projections[:, 1],
+        mode='lines',
+        hoverinfo='none',
+        line=dict(
+            width=0.6,
+            color=('rgba(180, 180, 180, 1)')
+        ),
+        showlegend=False
     )
 
     layout = go.Layout(
-        title='{} - {}'.format(dataset_name, method),
         xaxis=dict(
             title='Component 1'
         ),
         yaxis=dict(
             title='Component 2'
-            # ticklen=5,
-            # gridwidth=2,
         )
     )
 
     plot_data = {
-        'data': [trace],
+        'data': [lines, trace],
         'layout': layout
     }
 
     plot(
         plot_data,
-        filename=out_path + '/main.html',
+        filename=out_path + '.html',
         auto_open=False
     )
 
@@ -410,9 +431,9 @@ if __name__ == '__main__':
         ) for s in sum_degree
     ]
 
-    dataset_name = input.split('/')[-1]
-    if not os.path.exists(output):
-        os.makedirs(output)
-    plot_projections(plot_data, top_terms, points_size, dataset_name, method,
+    out_folder = '/'.join(output.split('/')[:-1])
+    if not os.path.exists(out_folder):
+        os.makedirs(out_folder)
+    plot_projections(plot_data, top_terms, points_size, method,
                      output)
     print('Operations finished.')
