@@ -398,7 +398,7 @@ if __name__ == '__main__':
         k=n_terms
     )
 
-    min_size = 12
+    min_size = 10
     max_size = 40
     sum_degree = vec_repr.sum(axis=1)
     min_degree = np.min(sum_degree)
