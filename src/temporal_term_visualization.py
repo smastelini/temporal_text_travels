@@ -29,7 +29,7 @@ def get_text_and_time_data_from_file(file_path):
     """Read text from 'file_path' and returns the content in 'column_name as
        a list of strings.
     """
-    data = pd.read_csv(file_path, dtype = object)
+    data = pd.read_csv(file_path, dtype=object)
     data_ = data.loc[:, ['date', 'title']]
 
     data_['date'] = pd.to_datetime(data_['date'])
@@ -160,10 +160,14 @@ def get_adj_matrix(corpus, terms):
 
 def get_splitted_adj_matrix(splitted_events, terms):
     splitted_adj_matrix = []
-    for events in splitted_events:
+    selected_slices = []
+    for i, events in enumerate(splitted_events):
         adj_matrix = get_adj_matrix(events, terms)
-        splitted_adj_matrix.append(adj_matrix)
-    return splitted_adj_matrix
+        degree = np.sum(adj_matrix.values)
+        if degree > 0.0:
+            selected_slices.append(i)
+            splitted_adj_matrix.append(adj_matrix)
+    return splitted_adj_matrix, selected_slices
 
 
 def join_time_variant_adj_matrices(splitted_adj_matrix):
@@ -181,8 +185,10 @@ def get_top_k_terms_and_time_period(splitted_adj_matrix, slices, terms,
                                     unstemmizer, k=5):
     top_terms = []
     for m, s in zip(splitted_adj_matrix, slices):
-        top_k = m.sum(axis=1).argsort()[-k:].tolist()
-        top_ = [unstemmizer[terms[t]].most_common(1)[0][0] for t in top_k]
+        sum_ = m.sum(axis=1).values
+        top_k = sum_.argsort()[-k:].tolist()
+        top_ = [unstemmizer[terms[t]].most_common(1)[0][0] for t in top_k
+                if sum_[t] > 0]
         if s.shape[0] > 1:
             period = '{0}/{1}/{2}-{3}/{4}/{5}'.format(
                 s.loc[0, 'date'].day,
@@ -371,8 +377,8 @@ if __name__ == '__main__':
     splitted_corpus = split_events(corpus, corpus['date'].min(),
                                    corpus['date'].max(),
                                    freq=time_slice)
-    splitted_adj_matrix = get_splitted_adj_matrix(splitted_corpus,
-                                                  relevant_terms)
+    splitted_adj_matrix, sel_slices = get_splitted_adj_matrix(splitted_corpus,
+                                                              relevant_terms)
     print('Getting dynamic network\'s vectorial representation.')
     # Vectorial to be projected in 2D
     vec_repr = join_time_variant_adj_matrices(splitted_adj_matrix)
@@ -384,7 +390,8 @@ if __name__ == '__main__':
     print('Ploting data.')
     top_terms = get_top_k_terms_and_time_period(
         splitted_adj_matrix,
-        splitted_corpus,
+        # Removing slices that do not contain the relevant terms
+        [splitted_corpus[t] for t in sel_slices],
         relevant_terms,
         unstemmizer,
         k=n_terms
