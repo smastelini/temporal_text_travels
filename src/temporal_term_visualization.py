@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import re
 import os
+import math
 from collections import Counter
 from gensim.models import LdaModel, LsiModel
 from gensim.corpora import Dictionary
@@ -230,7 +231,7 @@ def project_data_points(data, method='PCA'):
     return projected
 
 
-def plot_projections(projections, top_terms, dataset_name, method,
+def plot_projections(projections, top_terms, points_size, dataset_name, method,
                      out_path=None):
     """ Creates an interative scatter plot of the projections.
     """
@@ -242,7 +243,7 @@ def plot_projections(projections, top_terms, dataset_name, method,
         y=projections[:, 1],
         mode='lines+markers',
         marker=dict(
-            size=15,
+            size=points_size,
             line=dict(
                 width=0.3,
                 color='rgb(0, 0, 0)'
@@ -397,8 +398,21 @@ if __name__ == '__main__':
         k=n_terms
     )
 
+    min_size = 12
+    max_size = 40
+    sum_degree = vec_repr.sum(axis=1)
+    min_degree = np.min(sum_degree)
+    max_degree = np.max(sum_degree)
+    points_size = [
+        math.ceil(
+            (s - min_degree)/(max_degree - min_degree) *
+            (max_size - min_size) + min_size
+        ) for s in sum_degree
+    ]
+
     dataset_name = input.split('/')[-1]
     if not os.path.exists(output):
         os.makedirs(output)
-    plot_projections(plot_data, top_terms, dataset_name, method, output)
+    plot_projections(plot_data, top_terms, points_size, dataset_name, method,
+                     output)
     print('Operations finished.')
