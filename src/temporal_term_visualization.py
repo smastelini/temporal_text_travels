@@ -29,7 +29,7 @@ def get_text_and_time_data_from_file(file_path):
     """Read text from 'file_path' and returns the content in 'column_name as
        a list of strings.
     """
-    data = pd.read_csv(file_path)
+    data = pd.read_csv(file_path, dtype = object)
     data_ = data.loc[:, ['date', 'title']]
 
     data_['date'] = pd.to_datetime(data_['date'])
@@ -50,7 +50,7 @@ def remove_duplicated_texts(data):
 
 def tokenize_texts(texts, language='portuguese'):
     """Remove invalid characters and tokenize texts."""
-    texts = [re.sub('[^A-Za-zçáéíóúàããẽõ]', ' ', text).lower()
+    texts = [re.sub('[^A-Za-zçáéíóúàããẽõôê]', ' ', text).lower()
              for text in texts]
     texts = [word_tokenize(text, language=language) for text in texts]
     return texts
@@ -387,7 +387,7 @@ if __name__ == '__main__':
         splitted_corpus,
         relevant_terms,
         unstemmizer,
-        k=5
+        k=n_terms
     )
 
     dataset_name = input.split('/')[-1]
