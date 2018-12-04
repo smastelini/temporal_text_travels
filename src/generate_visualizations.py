@@ -9,8 +9,7 @@ datasets = {
 
 time_divisions = ['W', 'M']
 
-# projection_techniques = ['PCA', 't-SNE']
-projection_techniques = ['t-SNE']
+projection_techniques = ['PCA', 't-SNE', 'PCA-T']
 output_prefix = '../results'
 
 number_of_topics = 4

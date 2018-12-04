@@ -226,6 +226,8 @@ def project_data_points(data, method='PCA'):
         projection = MDS(n_components=2)
     elif method == 'Isomap':
         projection = Isomap(n_components=2)
+    elif method == 'PCA-T':
+        projection = PCA(n_components=1)
     else:
         projection = PCA(n_components=2)
 
@@ -248,52 +250,96 @@ def plot_projections(projections, top_terms, points_size, method,
         terms_degree.append(pretty_print)
     formatted_terms = ['<br>'.join(t) for t in terms_degree]
 
-    trace = go.Scatter(
-        x=projections[:, 0],
-        y=projections[:, 1],
-        mode='markers',
-        marker=dict(
-            opacity=1,
-            size=points_size,
-            cmin=0,
-            cmax=projections.shape[0],
-            color=[c for c in range(projections.shape[0])],
-            colorbar=dict(
-                title='Time step'
+    if projections.shape[1] > 1:
+        trace = go.Scatter(
+            x=projections[:, 0],
+            y=projections[:, 1],
+            mode='markers',
+            marker=dict(
+                opacity=1,
+                size=points_size,
+                cmin=0,
+                cmax=projections.shape[0],
+                color=[c for c in range(projections.shape[0])],
+                colorbar=dict(
+                    title='Time step'
+                ),
+                colorscale='Viridis'
+                # line=dict(
+                #     width=0.1,
+                #     color=('rgb(180, 180, 180)')
+                # ),
             ),
-            colorscale='Viridis'
-            # line=dict(
-            #     width=0.1,
-            #     color=('rgb(180, 180, 180)')
-            # ),
-        ),
-        hoverinfo='text',
-        text=['Step {}<br>({}):<br>{}'.format(t, top_terms[t][0],
-              formatted_terms[t]) for t in range(projections.shape[0])],
-        textposition='top left',
-        showlegend=False
-    )
-
-    lines = go.Scatter(
-        x=projections[:, 0],
-        y=projections[:, 1],
-        mode='lines',
-        hoverinfo='none',
-        line=dict(
-            width=0.6,
-            color=('rgba(180, 180, 180, 1)')
-        ),
-        showlegend=False
-    )
-
-    layout = go.Layout(
-        xaxis=dict(
-            title='Component 1'
-        ),
-        yaxis=dict(
-            title='Component 2'
+            hoverinfo='text',
+            text=['Step {}<br>({}):<br>{}'.format(t, top_terms[t][0],
+                  formatted_terms[t]) for t in range(projections.shape[0])],
+            textposition='top left',
+            showlegend=False
         )
-    )
+
+        lines = go.Scatter(
+            x=projections[:, 0],
+            y=projections[:, 1],
+            mode='lines',
+            hoverinfo='none',
+            line=dict(
+                width=0.6,
+                color=('rgba(180, 180, 180, 1)')
+            ),
+            showlegend=False
+        )
+
+        layout = go.Layout(
+            xaxis=dict(
+                title='Component 1'
+            ),
+            yaxis=dict(
+                title='Component 2'
+            )
+        )
+    else:
+        trace = go.Scatter(
+            x=[t for t in range(projections.shape[0])],
+            y=projections[:, 0],
+            mode='markers',
+            marker=dict(
+                opacity=1,
+                size=15,
+                cmin=0,
+                cmax=projections.shape[0],
+                color=[c for c in range(projections.shape[0])],
+                colorbar=dict(
+                    title='Time step'
+                ),
+                colorscale='Viridis'
+            ),
+            hoverinfo='text',
+            text=['Step {}<br>({}):<br>{}'.format(t, top_terms[t][0],
+                  formatted_terms[t]) for t in range(projections.shape[0])],
+            textposition='top left',
+            showlegend=False
+        )
+
+        lines = go.Scatter(
+            x=[t for t in range(projections.shape[0])],
+            y=projections[:, 0],
+            mode='lines',
+            hoverinfo='none',
+            line=dict(
+                width=0.6,
+                color=('rgba(180, 180, 180, 1)')
+            ),
+            showlegend=False
+        )
+
+        layout = go.Layout(
+            xaxis=dict(
+                title='Time'
+            ),
+            yaxis=dict(
+                title='Principal Component 1'
+            )
+        )
 
     plot_data = {
         'data': [lines, trace],
@@ -344,7 +390,8 @@ if __name__ == '__main__':
                 '(-s, --slice=) Time slicing strategy:\n' +
                 '\tD - Day\n\tW - Week (Default)\n\tM - Month\n' +
                 '(-m, --method=) Multidimensional projection method: ' +
-                '{PCA, t-SNE, MDS, Isomap} (Default: PCA)\n' +
+                '{PCA, t-SNE, MDS, Isomap, PCA-T (Time x PC1)} ' +
+                '(Default: PCA)\n' +
                 '(-t, --n_topics=) Number of topics for the LDA algorithm ' +
                 '(Default: 4)\n' +
                 '(-e, --n_terms=) Number of terms for the LDA algorithm ' +
