@@ -185,12 +185,13 @@ def get_top_k_terms_and_time_period(splitted_adj_matrix, slices, terms,
                                     unstemmizer, k=5):
     top_terms = []
     for m, s in zip(splitted_adj_matrix, slices):
-        sum_ = np.sum(m, axis=1)
-        top_k = sum_.argsort()[-k:].tolist()
+        mean_ = np.mean(m, axis=1)
+        std_ = np.std(m, axis=1)
+        top_k = mean_.argsort()[-k:].tolist()
         top_k.reverse()
         top_ = [unstemmizer[terms[t]].most_common(1)[0][0] for t in
-                top_k if sum_[t] > 0]
-        degrees = [sum_[t] for t in top_k if sum_[t] > 0]
+                top_k if mean_[t] > 0]
+        degrees = [(mean_[t], std_[t]) for t in top_k if mean_[t] > 0]
         if s.shape[0] > 1:
             period = '{0}/{1}/{2}-{3}/{4}/{5}'.format(
                 s.loc[0, 'date'].day,
@@ -234,7 +235,7 @@ def project_data_points(data, method='PCA'):
     return projected
 
 
-def plot_projections(projections, top_terms, means, stds, points_size, method,
+def plot_projections(projections, top_terms, points_size, method,
                      n_rel, out_path=None):
     """ Creates an interative scatter plot of the projections.
     """
@@ -243,9 +244,10 @@ def plot_projections(projections, top_terms, means, stds, points_size, method,
     for t in top_terms:
         pretty_print = []
         words_ = t[1]
-        degrees_ = t[2]
-        for w, d in zip(words_, degrees_):
-            pretty_print.append('[{0}] {1}'.format(int(d), w))
+        stats = t[2]
+        for w, (mu, sigma) in zip(words_, stats):
+            pretty_print.append('[{:0.2f} +/- {:0.2f}] {}'.format(mu, sigma,
+                                                                  w))
         terms_degree.append(pretty_print)
     formatted_terms = ['<br>'.join(t) for t in terms_degree]
 
