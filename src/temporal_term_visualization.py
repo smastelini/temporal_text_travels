@@ -175,7 +175,6 @@ def join_time_variant_adj_matrices(splitted_adj_matrix):
     n_rows = len(splitted_adj_matrix)
     n_cols = splitted_adj_matrix[0].shape[0] * splitted_adj_matrix[0].shape[1]
     vec_repr = np.zeros((n_rows, n_cols))
-
     for i in range(n_rows):
         vec_repr[i, :] = splitted_adj_matrix[i].values.reshape((1, n_cols))
 
@@ -186,7 +185,7 @@ def get_top_k_terms_and_time_period(splitted_adj_matrix, slices, terms,
                                     unstemmizer, k=5):
     top_terms = []
     for m, s in zip(splitted_adj_matrix, slices):
-        sum_ = m.sum(axis=1).values
+        sum_ = np.sum(m, axis=1)
         top_k = sum_.argsort()[-k:].tolist()
         top_k.reverse()
         top_ = [unstemmizer[terms[t]].most_common(1)[0][0] for t in
@@ -235,8 +234,8 @@ def project_data_points(data, method='PCA'):
     return projected
 
 
-def plot_projections(projections, top_terms, points_size, method,
-                     out_path=None):
+def plot_projections(projections, top_terms, means, stds, points_size, method,
+                     n_rel, out_path=None):
     """ Creates an interative scatter plot of the projections.
     """
     # Joins the top terms per time slice with line breaks
@@ -265,13 +264,10 @@ def plot_projections(projections, top_terms, points_size, method,
                     title='Time step'
                 ),
                 colorscale='Viridis'
-                # line=dict(
-                #     width=0.1,
-                #     color=('rgb(180, 180, 180)')
-                # ),
             ),
             hoverinfo='text',
-            text=['Step {}<br>({}):<br>{}'.format(t, top_terms[t][0],
+            text=['Step {}<br>({}):<br>{}'.format(
+                  t, top_terms[t][0],
                   formatted_terms[t]) for t in range(projections.shape[0])],
             textposition='top left',
             showlegend=False
@@ -295,7 +291,19 @@ def plot_projections(projections, top_terms, points_size, method,
             ),
             yaxis=dict(
                 title='Component 2'
-            )
+            ),
+            annotations=[
+                dict(
+                    x=0.95,
+                    y=1.1,
+                    xref='paper',
+                    yref='paper',
+                    xanchor='center',
+                    yanchor='top',
+                    text='Number of relevant terms: {}'.format(n_rel),
+                    showarrow=False,
+                )
+            ]
         )
     else:
         trace = go.Scatter(
@@ -304,17 +312,19 @@ def plot_projections(projections, top_terms, points_size, method,
             mode='markers',
             marker=dict(
                 opacity=1,
-                size=15,
+                size=12,
                 cmin=0,
-                cmax=projections.shape[0],
-                color=[c for c in range(projections.shape[0])],
-                colorbar=dict(
-                    title='Time step'
-                ),
-                colorscale='Viridis'
+                cmax=np.max(projections[:, 0]),
+                color=projections[:, 0],
+                colorscale='Bluered',
+                line=dict(
+                    width=0.7,
+                    color=('rgb(0, 0, 0)')
+                )
             ),
             hoverinfo='text',
-            text=['Step {}<br>({}):<br>{}'.format(t, top_terms[t][0],
+            text=['Step {}<br>({}):<br>{}'.format(
+                  t, top_terms[t][0],
                   formatted_terms[t]) for t in range(projections.shape[0])],
             textposition='top left',
             showlegend=False
@@ -326,7 +336,7 @@ def plot_projections(projections, top_terms, points_size, method,
             mode='lines',
             hoverinfo='none',
             line=dict(
-                width=0.6,
+                width=0.7,
                 color=('rgba(180, 180, 180, 1)')
             ),
             showlegend=False
@@ -338,7 +348,19 @@ def plot_projections(projections, top_terms, points_size, method,
             ),
             yaxis=dict(
                 title='Principal Component 1'
-            )
+            ),
+            annotations=[
+                dict(
+                    x=0.95,
+                    y=1.1,
+                    xref='paper',
+                    yref='paper',
+                    xanchor='center',
+                    yanchor='top',
+                    text='Number of relevant terms: {}'.format(n_rel),
+                    showarrow=False,
+                )
+            ]
         )
 
     plot_data = {
@@ -463,7 +485,7 @@ if __name__ == '__main__':
         [splitted_corpus[t] for t in sel_slices],
         relevant_terms,
         unstemmizer,
-        k=n_terms
+        k=len(relevant_terms)
     )
 
     min_size = 10
@@ -479,8 +501,8 @@ if __name__ == '__main__':
     ]
 
     out_folder = '/'.join(output.split('/')[:-1])
-    if not os.path.exists(out_folder):
+    if len(out_folder) > 0 and not os.path.exists(out_folder):
         os.makedirs(out_folder)
-    plot_projections(plot_data, top_terms, points_size, method,
-                     output)
+    plot_projections(plot_data, top_terms, points_size,
+                     method, len(relevant_terms), output)
     print('Operations finished.')
