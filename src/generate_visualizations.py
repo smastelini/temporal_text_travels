@@ -2,9 +2,12 @@ import os
 
 python_command = 'python3'
 datasets = {
-    'dengue_pt': 'dengue:globo',
-    'febre_amarela': 'febre:amarela:globo',
-    'trump_pt': 'donald:trump:the:globo'
+    #'dengue_pt': 'dengue:globo:ano:mil:neste:paulo:deve:sp:faz:rio:minas:ribeirão:preto:diz:paraná:santa:pode:ser:goi',
+    #'febre_amarela_17-18': 'febre:amarela:globo:sp:mg:minas:neste:após:mil:paulo:rio:rj:todo:santa:portal',
+    #'febre_amarela_all_years': 'febre:amarela:globo:sp:mg:minas:neste:após:mil:paulo:rio:rj:todo:santa:portal',
+    #'trump_pt': 'donald:trump:the:globo:pde:pode:vai:nega:news:diz:sobre:ex'
+    'copa_do_mundo': 'copa:mundo:globo:diz:mil:dia:nesta:deve:sul:saiba:chega:assistir:durante:porto:pode:tv:após:faz:veja:fica:ser:dias:sobre:feira:us:paulo:vai:quer:blogue:lança,fazem,antes'
+
 }
 
 time_divisions = ['W', 'M']
