@@ -24,7 +24,6 @@ import getopt
 # import matplotlib.pyplot as plt
 from plotly.offline import plot
 import plotly.graph_objs as go
-import plotly.io as pio
 
 
 def get_text_and_time_data_from_file(file_path):
