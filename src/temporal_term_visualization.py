@@ -24,6 +24,7 @@ import getopt
 # import matplotlib.pyplot as plt
 from plotly.offline import plot
 import plotly.graph_objs as go
+import plotly.io as pio
 
 
 def get_text_and_time_data_from_file(file_path):
@@ -370,11 +371,12 @@ def plot_projections(projections, top_terms, points_size, method,
         'layout': layout
     }
 
-    plot(
+    fig = plot(
         plot_data,
         filename=out_path + '.html',
         auto_open=False
     )
+    pio.write_image(fig, out_path + '.pdf')
 
 
 # Descomentar para testar as funcionalidades
