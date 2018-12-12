@@ -6,7 +6,7 @@ datasets = {
     #'febre_amarela_17-18': 'febre:amarela:globo:sp:mg:minas:neste:após:mil:paulo:rio:rj:todo:santa:portal',
     #'febre_amarela_all_years': 'febre:amarela:globo:sp:mg:minas:neste:após:mil:paulo:rio:rj:todo:santa:portal',
     #'trump_pt': 'donald:trump:the:globo:pde:pode:vai:nega:news:diz:sobre:ex'
-    'copa_do_mundo': 'copa:mundo:globo:diz:mil:dia:nesta:deve:sul:saiba:chega:assistir:durante:porto:pode:tv:após:faz:veja:fica:ser:dias:sobre:feira:us:paulo:vai:quer:blogue:lança,fazem,antes'
+    'copa_do_mundo': 'copa:mundo:globo:diz:mil:dia:nesta:deve:sul:saiba:chega:assistir:durante:porto:pode:tv:após:faz:veja:fica:ser:dias:sobre:feira:us:paulo:vai:quer:blogue:lança:fazem:antes'
 
 }
 
