@@ -375,7 +375,6 @@ def plot_projections(projections, top_terms, points_size, method,
         filename=out_path + '.html',
         auto_open=False
     )
-    pio.write_image(fig, out_path + '.pdf')
 
 
 # Descomentar para testar as funcionalidades
